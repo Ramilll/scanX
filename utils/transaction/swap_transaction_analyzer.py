@@ -10,16 +10,20 @@ from utils.transaction.normal_transaction import NormalTransaction
 class SwapFunctionName(Enum):
     swap_eth_for_exact_tokens = "swapETHForExactTokens(uint256 amountOut, address[] path, address to, uint256 deadline)"
     swap_exact_eth_for_tokens = "swapExactETHForTokens(uint256 amountOutMin, address[] path, address to, uint256 deadline)"
+    swap_exact_eth_for_tokens_supporting_fee_on_transfer_tokens = "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256 amountOutMin, address[] path, address to, uint256 deadline)"
     swap_exact_tokens_for_eth_supporting_fee_on_transfer_tokens = "swapExactTokensForETHSupportingFeeOnTransferTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to, uint256 deadline)"
 
 
-SWAP_FUNCTION_NAMES = [swap.value for swap in SwapFunctionName]
+def is_swap(function_name: str) -> bool:
+    return function_name in [swap.value for swap in SwapFunctionName]
 
 
 @dataclass
 class SwapTransactionResult:
     owner_address: str
     function_name: str
+    token_name: str
+    token_symbol: str
     swap_hash: str
     block_number: int
     timestamp: int
@@ -29,6 +33,12 @@ class SwapTransactionResult:
     eth_amount: float
     transaction_fee: float
     direction: str  # buy or sell
+
+    def to_json(self):
+        res = {}
+        for key, value in self.__dict__.items():
+            res[key] = value
+        return res
 
 
 # swap_eth_for_exact_tokens -> 1 normal, 1 erc20, 1 internal
@@ -69,34 +79,36 @@ class SwapTransactionAnalyzer:
         assert (
             self.normal_transaction.tx_hash == self.swap_hash
         ), "Wrong normal transaction hash"
-        assert (
-            self.erc_20_transaction.tx_hash == self.swap_hash
-        ), "Wrong erc20 transaction hash"
-        for internal_transaction in self.internal_transactions:
+        for erc_20_transaction in self.erc_20_transactions:
             assert (
-                internal_transaction.tx_hash == self.swap_hash
+                erc_20_transaction.tx_hash == self.swap_hash
+            ), "Wrong erc20 transaction hash"
+        if self.internal_transaction:
+            assert (
+                self.internal_transaction.tx_hash == self.swap_hash
             ), "Wrong internal transaction hash"
 
     def check_swap_function_name_is_swap(self):
-        assert (
-            self.normal_transaction.function_name in SWAP_FUNCTION_NAMES
+        assert is_swap(
+            self.normal_transaction.function_name
         ), "Wrong function name for normal transaction"
 
     def check_swap_is_successful(self):
-        assert self.normal_transaction.is_error == 0, "Normal transaction is error"
+        assert not self.normal_transaction.is_error(), "Normal transaction is error"
 
     def get_transaction_dir(self, transaction) -> int:
-        if transaction.from_address == self.owner_address:
+        if transaction.from_address.lower() == self.owner_address.lower():
             return -1
-        elif transaction.to_address == self.owner_address:
+        elif transaction.to_address.lower() == self.owner_address.lower():
             return 1
-        else:
-            return 0
+        return 0
 
     def get_swap_transaction_result(self) -> SwapTransactionResult:
         eth_result = 0
         token_result = 0
         transaction_fee_in_eth = self.erc_20_transactions[0].transaction_fee_in_eth()
+        token_name = ""
+        token_symbol = ""
 
         eth_result += (
             self.get_transaction_dir(self.normal_transaction)
@@ -108,11 +120,23 @@ class SwapTransactionAnalyzer:
                 * self.internal_transaction.value_in_eth()
             )
         for tx in self.erc_20_transactions:
-            token_result += self.get_transaction_dir(tx) * tx.token_amount
+            token_result += (
+                self.get_transaction_dir(tx) * tx.transaction_value_in_native_tokens()
+            )
+            if token_name == "":
+                token_name = tx.token_name
+            else:
+                assert token_name == tx.token_name, "Different token names"
+            if token_symbol == "":
+                token_symbol = tx.token_symbol
+            else:
+                assert token_symbol == tx.token_symbol, "Different token symbols"
 
         swap_result = SwapTransactionResult(
             owner_address=self.owner_address,
             function_name=self.swap_function_name,
+            token_name=token_name,
+            token_symbol=token_symbol,
             swap_hash=self.swap_hash,
             block_number=self.swap_block_number,
             timestamp=self.swap_timestamp,

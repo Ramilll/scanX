@@ -10,10 +10,13 @@ class InternalTransaction(BaseTransaction):
     def __init__(self, transaction: dict) -> None:
         super().__init__(transaction)
         self.transaction_name = "internal_transaction"
-        self.is_error = int(transaction["isError"])
+        self._is_error = int(transaction["isError"])
         self.err_code = transaction["errCode"]
         self.trace_id = transaction["traceId"]
         self.type = transaction["type"]
+
+    def is_error(self) -> bool:
+        return self._is_error == 1
 
     def value_in_eth(self) -> float:
         return self.value / WEI_IN_ETH

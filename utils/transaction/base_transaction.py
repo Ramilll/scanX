@@ -6,10 +6,10 @@ class BaseTransaction:
         self.transaction_name = "base_transaction"
         self.block_number = int(transaction["blockNumber"])
         self.timestamp = int(transaction["timeStamp"])
-        self.from_address = transaction["from"]
-        self.contract_address = transaction["contractAddress"]
-        self.to_address = transaction["to"]
-        self.tx_hash = transaction["hash"]
+        self.from_address = transaction["from"].lower()
+        self.contract_address = transaction["contractAddress"].lower()
+        self.to_address = transaction["to"].lower()
+        self.tx_hash = transaction["hash"].lower()
         self.gas = int(transaction["gas"])
         self.gas_used = int(transaction["gasUsed"])
         self.input_data = transaction["input"]
