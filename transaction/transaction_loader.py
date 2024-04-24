@@ -3,7 +3,7 @@ from typing import List, Tuple
 from transaction.erc20_transaction import ERC20Transaction
 from transaction.internal_transaction import InternalTransaction
 from transaction.normal_transaction import NormalTransaction
-from utils.etherscan_client import EtherscanClient
+from api_endpoints.etherscan_client import EtherscanClient
 
 
 class TransactionLoader:
