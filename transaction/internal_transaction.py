@@ -1,5 +1,5 @@
 from utils.constants import WEI_IN_ETH
-from utils.transaction.base_transaction import BaseTransaction
+from transaction.base_transaction import BaseTransaction
 
 
 class InternalTransaction(BaseTransaction):
