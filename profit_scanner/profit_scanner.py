@@ -1,6 +1,6 @@
 from collections import defaultdict
 from typing import Dict, List, Union
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from transaction.swap_transaction_bundle import SwapTransactionBundle
 from transaction_analysis.swap_function_name import is_swap, TRANSFER
@@ -20,6 +20,18 @@ class SkippedTransactionReasons:
     not_swap_transaction: Dict[str, int] = field(
         default_factory=lambda: defaultdict(int)
     )
+
+    def to_dict(self) -> dict:
+        # Manually construct the dictionary to ensure proper serialization
+        return {
+            "no_normal_transaction": self.no_normal_transaction,
+            "error": self.error,
+            "not_valid_count_sub_transactions": self.not_valid_count_sub_transactions,
+            "not_valid_bundle": self.not_valid_bundle,
+            "not_swap_transaction": dict(
+                self.not_swap_transaction
+            ),  # Convert defaultdict to dict explicitly
+        }
 
 
 class ProfitScanner:
