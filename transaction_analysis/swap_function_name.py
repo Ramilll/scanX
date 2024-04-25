@@ -2,6 +2,8 @@ from enum import Enum
 
 from transaction_analysis.transaction_pattern import TransactionPattern
 
+TRANSFER = ""
+
 
 class SwapFunctionName(Enum):
     swap_eth_for_exact_tokens = (
@@ -19,6 +21,10 @@ class SwapFunctionName(Enum):
     swap_exact_eth_for_tokens_supporting_fee_on_transfer_tokens = (
         "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256 amountOutMin, address[] path, address to, uint256 deadline)",
         TransactionPattern(1, 1, 0),
+    )
+    execute = (
+        "execute(bytes commands,bytes[] inputs,uint256 deadline)",
+        TransactionPattern(1, 1, [0, 1]),
     )
 
     def __init__(self, function_signature, transaction_pattern):
@@ -42,6 +48,9 @@ class SwapFunctionName(Enum):
 
 
 def is_swap(function_name: str) -> bool:
+    assert isinstance(
+        function_name, str
+    ), f"Invalid type for is_swap: {type(function_name)}"
     return any(
         function_name == swap_function.signature for swap_function in SwapFunctionName
     )

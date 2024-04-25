@@ -3,6 +3,7 @@ from typing import List
 from transaction.erc20_transaction import ERC20Transaction
 from transaction.internal_transaction import InternalTransaction
 from transaction.normal_transaction import NormalTransaction
+from transaction_analysis.transaction_count import get_transaction_count_by_same_hash
 
 
 class TransactionPattern:
@@ -27,15 +28,17 @@ class TransactionPattern:
         internal_transactions: List[InternalTransaction],
     ) -> bool:
         # Validate each transaction count against the allowed values
-        normal_count = len(normal_transactions)
-        erc20_count = len(erc20_transactions)
-        internal_count = len(internal_transactions)
+        transaction_count = get_transaction_count_by_same_hash(
+            normal_transactions + erc20_transactions + internal_transactions
+        )
 
-        if not self._validate_count(normal_count, self.normal_count):
+        if not self._validate_count(transaction_count.normal_count, self.normal_count):
             return False
-        if not self._validate_count(erc20_count, self.erc20_count):
+        if not self._validate_count(transaction_count.erc20_count, self.erc20_count):
             return False
-        if not self._validate_count(internal_count, self.internal_count):
+        if not self._validate_count(
+            transaction_count.internal_count, self.internal_count
+        ):
             return False
 
         return True

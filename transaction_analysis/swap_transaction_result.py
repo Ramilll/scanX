@@ -18,6 +18,12 @@ class SwapTransactionResult:
     transaction_fee: float
     direction: str  # 'buy' or 'sell'
 
+    def eth_dir_sign(self) -> int:
+        return -1 if self.direction == "buy" else 1
+
+    def token_dir_sign(self) -> int:
+        return 1 if self.direction == "buy" else -1
+
     def to_json(self) -> dict:
         """Converts the dataclass to a JSON-serializable dictionary."""
         return asdict(self)

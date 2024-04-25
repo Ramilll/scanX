@@ -32,8 +32,6 @@ class SwapTransactionBundle:
         if not erc20_transactions:
             raise ValueError("ERC20 transactions list cannot be empty.")
 
-        self._assert_valid_count_sub_transactions()
-
     def is_valid(self) -> bool:
         """
         Checks if the swap transaction is valid based on hash, function name, and success status.
@@ -42,6 +40,7 @@ class SwapTransactionBundle:
             self._check_is_valid_hash()
             and self._check_is_valid_function_name()
             and self._check_swap_is_successful()
+            and self._check_same_contract_address()
         )
 
     @property
@@ -72,7 +71,9 @@ class SwapTransactionBundle:
     def token_name(self) -> str:
         token_name = self.erc20_transactions[0].token_name
         for erc_20_transaction in self.erc20_transactions:
-            assert token_name == erc_20_transaction.token_name, "Different token names"
+            assert (
+                token_name == erc_20_transaction.token_name
+            ), f"Different token names for {self.swap_hash}"
         return token_name
 
     @property
@@ -121,19 +122,37 @@ class SwapTransactionBundle:
     def _check_swap_is_successful(self) -> bool:
         return not self.normal_transaction.is_error()
 
-    def _assert_valid_count_sub_transactions(self):
+    def _check_same_contract_address(self) -> bool:
+        return all(
+            self.erc20_transactions[0].contract_address == tx.contract_address
+            for tx in self.erc20_transactions
+        )
+
+    @staticmethod
+    def is_valid_count_sub_transactions(
+        normal_transaction: NormalTransaction,
+        erc20_transactions: List[ERC20Transaction],
+        internal_transaction: Optional[InternalTransaction],
+    ) -> bool:
         """
         Validates the count of normal, ERC20, and internal transactions against expected patterns defined for the swap function.
         """
         function_enum = next(
-            (func for func in SwapFunctionName if func.signature == self.function_name),
+            (
+                func
+                for func in SwapFunctionName
+                if func.signature == normal_transaction.function_name
+            ),
             None,
         )
         if not function_enum:
             return
 
-        assert function_enum.is_valid_transaction_count(
-            [self.normal_transaction],
-            self.erc20_transactions,
-            [self.internal_transaction] if self.internal_transaction else [],
-        ), f"Invalid count of sub transactions for {self.function_name}, actual count normal: 1, erc20: {len(self.erc20_transactions)}, internal: {1 if self.internal_transaction else 0}"
+        return (
+            function_enum.is_valid_transaction_count(
+                [normal_transaction],
+                erc20_transactions,
+                [internal_transaction] if internal_transaction else [],
+            ),
+            f"Invalid count of sub transactions for {normal_transaction.function_name}, tx_hash: {normal_transaction.tx_hash} actual count normal: 1, erc20: {len(erc20_transactions)}, internal: {1 if internal_transaction else 0}",
+        )
