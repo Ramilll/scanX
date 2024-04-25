@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Union
+from dataclasses import dataclass, field
 
 from transaction.swap_transaction_bundle import SwapTransactionBundle
 from transaction_analysis.swap_function_name import is_swap, TRANSFER
@@ -9,7 +10,16 @@ from transaction.erc20_transaction import ERC20Transaction
 from transaction.internal_transaction import InternalTransaction
 from transaction.normal_transaction import NormalTransaction
 
-from transaction_analysis.transaction_count import get_transaction_count_by_same_hash
+
+@dataclass
+class SkippedTransactionReasons:
+    no_normal_transaction: int = 0
+    error: int = 0
+    not_valid_count_sub_transactions: int = 0
+    not_valid_bundle: int = 0
+    not_swap_transaction: Dict[str, int] = field(
+        default_factory=lambda: defaultdict(int)
+    )
 
 
 class ProfitScanner:
@@ -28,10 +38,10 @@ class ProfitScanner:
         self.internal_transactions = internal_transactions
 
         self.txs_by_hash = self._create_txs_by_hash()
-        self.nor_processed_function_names = set()
 
-    def process(self) -> List[SwapTransactionResult]:
+    def process(self) -> Union[List[SwapTransactionResult], SkippedTransactionReasons]:
         swap_transaction_results = []
+        skip_transaction_reasons = SkippedTransactionReasons()
         for tx_hash, txs in self.txs_by_hash.items():
             normal_transactions: List[NormalTransaction] = []
             erc20_transactions: List[ERC20Transaction] = []
@@ -47,6 +57,7 @@ class ProfitScanner:
                     raise ValueError(f"Unknown transaction type: {type(tx)}")
 
             if not normal_transactions:
+                skip_transaction_reasons.no_normal_transaction += 1
                 continue
 
             assert (
@@ -56,7 +67,9 @@ class ProfitScanner:
             normal_transaction = normal_transactions[0]
 
             if not is_swap(normal_transaction.function_name):
-                self.nor_processed_function_names.add(normal_transaction.function_name)
+                skip_transaction_reasons.not_swap_transaction[
+                    normal_transaction.function_name
+                ] += 1
                 continue
 
             assert (
@@ -68,6 +81,7 @@ class ProfitScanner:
             )
 
             if normal_transaction.is_error():
+                skip_transaction_reasons.error += 1
                 continue
 
             assert len(erc20_transactions) > 0, "No ERC20 transactions found for swap"
@@ -75,6 +89,7 @@ class ProfitScanner:
             if not SwapTransactionBundle.is_valid_count_sub_transactions(
                 normal_transaction, erc20_transactions, internal_transaction
             ):
+                skip_transaction_reasons.not_valid_count_sub_transactions += 1
                 continue
 
             swap_tranaction_bundle = SwapTransactionBundle(
@@ -85,7 +100,7 @@ class ProfitScanner:
             )
 
             if not swap_tranaction_bundle.is_valid():
-                print(f"Invalid swap transaction: {tx_hash}")
+                skip_transaction_reasons.not_valid_bundle += 1
                 continue
 
             swap_transaction_result = (
@@ -95,7 +110,10 @@ class ProfitScanner:
             )
             swap_transaction_results.append(swap_transaction_result)
 
-        return sorted(swap_transaction_results, key=lambda x: x.timestamp)
+        return (
+            sorted(swap_transaction_results, key=lambda x: x.timestamp),
+            skip_transaction_reasons,
+        )
 
     def _create_txs_by_hash(self):
         txs_by_hash = defaultdict(list)

@@ -1,5 +1,5 @@
 from transaction.swap_transaction_bundle import SwapTransactionBundle
-from transaction_analysis.swap_transaction_result import SwapTransactionResult
+from transaction_analysis.swap_transaction_result import SwapTransactionResult, Token
 
 
 class SwapTransactionAnalyzer:
@@ -33,14 +33,16 @@ class SwapTransactionAnalyzer:
         return SwapTransactionResult(
             owner_address=bundle.owner_address,
             function_name=bundle.function_name,
-            token_name=bundle.token_name,
-            token_symbol=bundle.token_symbol,
-            token_decimal=bundle.token_decimal,
+            token=Token(
+                name=bundle.token_name,
+                symbol=bundle.token_symbol,
+                decimal=bundle.token_decimal,
+                address=bundle.get_token_address(),
+            ),
             swap_hash=bundle.swap_hash,
             block_number=bundle.block_number,
             timestamp=bundle.timestamp,
             router_address=bundle.router_address,
-            token_address=bundle.get_token_address(),
             token_amount=abs(token_result),
             eth_amount=abs(eth_result),
             transaction_fee=bundle.transaction_fee_eth,

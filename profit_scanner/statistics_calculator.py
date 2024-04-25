@@ -1,10 +1,11 @@
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, is_dataclass
+import json
 from typing import Dict, List
 import numpy as np
 from datetime import datetime
 from dataclasses import dataclass
 from typing import List, Optional
-from transaction_analysis.swap_transaction_result import SwapTransactionResult
+from transaction_analysis.swap_transaction_result import SwapTransactionResult, Token
 from dataclasses import dataclass, asdict, field
 from typing import Dict, List
 from datetime import datetime
@@ -30,10 +31,22 @@ class StatisticsResult:
     total_trading_volume_eth: float
     last_transaction_time: datetime
     first_transaction_time: datetime
-    per_coin_stats: Dict[str, CoinStatistics]
+    per_coin_stats: Dict[Token, CoinStatistics] = field(default_factory=dict)
 
-    def to_json(self) -> dict:
-        return asdict(self)
+    def to_dict(self) -> dict:
+        # Manually create dictionary to handle complex types
+        return {
+            "owner_address": self.owner_address,
+            "total_trading_volume_eth": self.total_trading_volume_eth,
+            "last_transaction_time": self.last_transaction_time.isoformat(),
+            "first_transaction_time": self.first_transaction_time.isoformat(),
+            "per_coin_stats": {
+                str(key): (
+                    value.to_dict() if hasattr(value, "to_dict") else asdict(value)
+                )
+                for key, value in self.per_coin_stats.items()
+            },
+        }
 
 
 class StatisticsCalculator:
@@ -41,52 +54,49 @@ class StatisticsCalculator:
     def process(
         owner_address: str, transactions: List[SwapTransactionResult]
     ) -> StatisticsResult:
-        coin_stats_by_name = defaultdict(CoinStatistics)
+        coin_stats_by_token: Dict[Token, CoinStatistics] = defaultdict(CoinStatistics)
         for swap_transaction in transactions:
-            coin_stats = coin_stats_by_name[swap_transaction.token_name]
-            coin_stats.trading_volume_eth += swap_transaction.eth_amount
+            stats = coin_stats_by_token[swap_transaction.token]
+            stats.trading_volume_eth += swap_transaction.eth_amount
 
-            coin_stats.eth_saldo += (
+            stats.eth_saldo += (
                 swap_transaction.eth_dir_sign() * swap_transaction.eth_amount
             )
-            coin_stats.token_saldo += (
+            stats.token_saldo += (
                 swap_transaction.token_dir_sign() * swap_transaction.token_amount
             )
-            coin_stats.last_transaction_time = max(
-                coin_stats.last_transaction_time,
+            stats.last_transaction_time = max(
+                stats.last_transaction_time,
                 datetime.fromtimestamp(swap_transaction.timestamp),
             )
-            coin_stats.first_transaction_time = min(
-                coin_stats.first_transaction_time,
+            stats.first_transaction_time = min(
+                stats.first_transaction_time,
                 datetime.fromtimestamp(swap_transaction.timestamp),
             )
-            coin_stats.num_deals += 1
-            coin_stats.num_buy_deals += swap_transaction.direction == "buy"
-            coin_stats.num_sell_deals += swap_transaction.direction == "sell"
+            stats.num_deals += 1
+            stats.num_buy_deals += swap_transaction.direction == "buy"
+            stats.num_sell_deals += swap_transaction.direction == "sell"
 
         del_token_names = []
-        for token_name in coin_stats_by_name.keys():
-            print(token_name)
-            if coin_stats_by_name[token_name].token_saldo < 0:
-                del_token_names.append(token_name)
+        for token in coin_stats_by_token.keys():
+            print(token)
+            if coin_stats_by_token[token].token_saldo < 0:
+                del_token_names.append(token)
 
-        for token_name in del_token_names:
-            coin_stats_by_name.pop(token_name)
+        for token in del_token_names:
+            coin_stats_by_token.pop(token)
 
         stat_result = StatisticsResult(
             owner_address=owner_address,
             total_trading_volume_eth=sum(
-                coin_stats.trading_volume_eth
-                for coin_stats in coin_stats_by_name.values()
+                stats.trading_volume_eth for stats in coin_stats_by_token.values()
             ),
             last_transaction_time=max(
-                coin_stats.last_transaction_time
-                for coin_stats in coin_stats_by_name.values()
+                stats.last_transaction_time for stats in coin_stats_by_token.values()
             ),
             first_transaction_time=min(
-                coin_stats.first_transaction_time
-                for coin_stats in coin_stats_by_name.values()
+                stats.first_transaction_time for stats in coin_stats_by_token.values()
             ),
-            per_coin_stats=dict(coin_stats_by_name),
+            per_coin_stats=dict(coin_stats_by_token),
         )
         return stat_result

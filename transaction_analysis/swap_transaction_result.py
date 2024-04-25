@@ -1,18 +1,27 @@
 from dataclasses import dataclass, asdict
 
 
+@dataclass(frozen=True)
+class Token:
+    name: str
+    symbol: str
+    decimal: int
+    address: str
+
+    def __str__(self):
+        # Ensures that each Token has a unique string representation
+        return f"{self.name} ({self.symbol}) at {self.address}"
+
+
 @dataclass
 class SwapTransactionResult:
     owner_address: str
     function_name: str
-    token_name: str
-    token_symbol: str
-    token_decimal: int
+    token: Token
     swap_hash: str
     block_number: int
     timestamp: int
     router_address: str
-    token_address: str
     token_amount: float
     eth_amount: float
     transaction_fee: float
