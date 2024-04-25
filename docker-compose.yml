@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: root
+      RABBITMQ_DEFAULT_PASS: root
+    
+  
+  flower:
+    image: mher/flower
+    restart: always
+    ports:
+      - "5555:5555"
+    environment:
+      CELERY_BROKER_URL: amqp://root:root@rabbitmq:5672
+      FLOWER_PORT: 5555
+    depends_on:
+      - rabbitmq
+volumes:
+  db_data:
+  rabbitmq_data:

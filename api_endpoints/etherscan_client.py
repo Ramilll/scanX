@@ -1,5 +1,4 @@
 import requests
-
 from utils.config import Config
 
 
@@ -8,11 +7,17 @@ class EtherscanClient:
 
     def __init__(self, api_key=Config.ETHERSCAN_API_KEY):
         self.api_key = api_key
+        self.session = requests.Session()
 
     def _get(self, params):
-        response = requests.get(self.BASE_URL, params=params)
+        response = self.session.get(self.BASE_URL, params=params)
         response.raise_for_status()
-        return response.json()["result"]
+        result = response.json()
+        if result["status"] == "0":
+            if result["message"] == "No transactions found":
+                return []
+            raise Exception(result["message"])
+        return result["result"]
 
     def get_normal_transaction_history(
         self, address, start_block=0, end_block=99999999, page=1, offset=-1, sort="asc"
