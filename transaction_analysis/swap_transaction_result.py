@@ -5,7 +5,7 @@ from dataclasses import dataclass, asdict
 class Token:
     name: str
     symbol: str
-    decimal: int
+    decimals: int
     address: str
 
     def __str__(self):
