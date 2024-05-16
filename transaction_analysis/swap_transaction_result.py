@@ -5,7 +5,7 @@ from dataclasses import dataclass, asdict
 class Token:
     name: str
     symbol: str
-    decimal: int
+    decimals: int
     address: str
 
     def __str__(self):
@@ -33,6 +33,6 @@ class SwapTransactionResult:
     def token_dir_sign(self) -> int:
         return 1 if self.direction == "buy" else -1
 
-    def to_json(self) -> dict:
+    def to_dict(self) -> dict:
         """Converts the dataclass to a JSON-serializable dictionary."""
         return asdict(self)

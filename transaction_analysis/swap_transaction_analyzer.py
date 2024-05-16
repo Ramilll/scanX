@@ -36,7 +36,7 @@ class SwapTransactionAnalyzer:
             token=Token(
                 name=bundle.token_name,
                 symbol=bundle.token_symbol,
-                decimal=bundle.token_decimal,
+                decimals=bundle.token_decimal,
                 address=bundle.get_token_address(),
             ),
             swap_hash=bundle.swap_hash,
